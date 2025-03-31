@@ -65,7 +65,8 @@ class Dictionary(Generic[K, V]):
         raise KeyError(f"Key {key!r} not found")
 
     def clear(self) -> None:
-        self._buckets = [[] for _ in range(self._initial_capacity)]
+        for i in range(len(self._buckets)):
+            self._buckets[i].clear()
         self._length = 0
 
     def update(self, other: "Dictionary[K, V]") -> None:
