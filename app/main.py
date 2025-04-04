@@ -22,27 +22,21 @@ class Dictionary(Generic[K, V]):
         self._insert(key, value)
 
     def __getitem__(self, key: K) -> V:
-        index: int = self._get_index(key)
         key_hash: int = hash(key)
-        bucket = self._buckets[index]
-
+        bucket: list[tuple[int, K, V]] = self._get_bucket(key_hash)
         for h, k, v in bucket:
             if h == key_hash and k == key:
                 return v
-
         raise KeyError(f"Key {key!r} not found")
 
     def __delitem__(self, key: K) -> None:
-        index: int = self._get_index(key)
         key_hash: int = hash(key)
-        bucket = self._buckets[index]
-
+        bucket: list[tuple[int, K, V]] = self._get_bucket(key_hash)
         for i, (h, k, _) in enumerate(bucket):
             if h == key_hash and k == key:
                 del bucket[i]
                 self._length -= 1
                 return
-
         raise KeyError(f"Key {key!r} not found")
 
     def get(self, key: K, default: V | None = None) -> V | None:
@@ -51,17 +45,18 @@ class Dictionary(Generic[K, V]):
         except KeyError:
             return default
 
-    def pop(self, key: K) -> V:
-        index: int = self._get_index(key)
-        key_hash: int = hash(key)
-        bucket = self._buckets[index]
+    def update(self, other: "Dictionary[K, V]") -> None:
+        for key in other:
+            self[key] = other[key]
 
+    def pop(self, key: K) -> V:
+        key_hash: int = hash(key)
+        bucket: list[tuple[int, K, V]] = self._get_bucket(key_hash)
         for i, (h, k, v) in enumerate(bucket):
             if h == key_hash and k == key:
                 del bucket[i]
                 self._length -= 1
                 return v
-
         raise KeyError(f"Key {key!r} not found")
 
     def clear(self) -> None:
@@ -69,37 +64,31 @@ class Dictionary(Generic[K, V]):
             self._buckets[i].clear()
         self._length = 0
 
-    def update(self, other: "Dictionary[K, V]") -> None:
-        for key in other:
-            self[key] = other[key]
-
     def __iter__(self) -> Iterator[K]:
         for bucket in self._buckets:
-            for _, key, _ in bucket:
-                yield key
+            for _, k, _ in bucket:
+                yield k
+
+    def _get_bucket(self, key_hash: int) -> list[tuple[int, K, V]]:
+        index: int = key_hash % len(self._buckets)
+        return self._buckets[index]
 
     def _insert(self, key: K, value: V) -> None:
-        index: int = self._get_index(key)
         key_hash: int = hash(key)
-        bucket = self._buckets[index]
-
+        bucket: list[tuple[int, K, V]] = self._get_bucket(key_hash)
         for i, (h, k, _) in enumerate(bucket):
             if h == key_hash and k == key:
                 bucket[i] = (key_hash, key, value)
                 return
-
         bucket.append((key_hash, key, value))
         self._length += 1
 
-    def _get_index(self, key: K) -> int:
-        return hash(key) % len(self._buckets)
-
     def _resize(self) -> None:
-        old_buckets = self._buckets
+        old_buckets: list[list[tuple[int, K, V]]] = self._buckets
         new_capacity: int = len(self._buckets) * 2
         self._buckets = [[] for _ in range(new_capacity)]
         self._length = 0
 
         for bucket in old_buckets:
-            for h, k, v in bucket:
+            for _, k, v in bucket:
                 self._insert(k, v)
